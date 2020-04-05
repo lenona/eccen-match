@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+
+import argparse, pycbc
+import pycbc.workflow as wf
+from ligo.segments import segment
+import glob
+import numpy as np
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--output-dir", default=None,
+                    help="Path to output directory.")
+
+wf.add_workflow_command_line_group(parser)
+opts = parser.parse_args()
+
+pycbc.init_logging(True)
+workflow = wf.Workflow(opts, "maxmatch_tf2e")
+wf.makedir(opts.output_dir)
+
+exe = wf.Executable(workflow.cp, "max-match", ifos=['maxmatch-TF2E'],
+                              out_dir=opts.output_dir)
+
+files = glob.glob('/work/amber.lenon/projects/eccen/eccenfaith/TaylorF2e/30TF2e/match-files/*.txt')
+files.sort(key=lambda f: int(filter(str.isdigit, f)))
+
+upper=132192
+lower=1
+for matchfile in files:
+    high = np.add(lower,544)
+    node = exe.create_node()
+    node.add_opt("--match-file", matchfile)
+    node.set_memory(10000)
+    file = node.new_output_file_opt(segment([lower, lower+544]), ".txt",
+                                    "--output-file")
+    workflow += node
+    lower += 544
+workflow.save('tf2e_maxmatch.dax')

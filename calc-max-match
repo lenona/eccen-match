@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+
+import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--match-file", default=None,
+                    help="upper limit of the chunk")
+parser.add_argument("--output-dir", default=None,
+                    help="Path to output directory.")
+parser.add_argument("--output-file", default=None,
+                    help="Path to output directory.")
+parser.add_argument("--lower-limit", default=None, type=float,
+                    help="Lower limit of the chunk")
+parser.add_argument("--upper-limit", default=None, type=float,
+                    help="upper limit of the chunk")
+
+args = parser.parse_args()
+
+eccen_file=args.match_file
+
+f = open(args.output_file, 'w+')
+headers = ['m1', 'm2','lan' 'injecc', 'ecc', 'match']
+f.write(' '.join(headers)+'\n')
+
+
+i=1
+j=1
+d=0
+e=61
+#d=int(args.lower_limit-1)
+#e=int(args.lower_limit+60)
+
+while i <= 500:
+#   if j < args.lower_limit:
+#        pass
+
+#   elif j >= args.lower_limit and j <= args.upper_limit:
+    #read in the masses, long_asc_nodes, and injected eccen for each set of 60
+    m1 = (np.loadtxt(eccen_file, skiprows=1)[d:d+1, 1])
+    m2 = float(np.loadtxt(eccen_file, skiprows=1)[d:d+1, 2])
+    lan = float(np.loadtxt(eccen_file, skiprows=1)[d:d+1, 3])
+    injecc = float(np.loadtxt(eccen_file, skiprows=1)[d:d+1, 4])
+    
+    #Find the eccentricity at the maximum match
+    ecc = np.loadtxt(eccen_file, skiprows=1)[d:e, 5]
+    match = np.loadtxt(eccen_file, skiprows=1)[d:e, 6]
+    matchmax=np.amax(match)
+    match_max_index=np.argmax(match)
+    maxecc=ecc[match_max_index]
+    
+    f.write("%.4f %.4f %.4f %.5f %.5f %.2f\n" % (m1,m2,lan,injecc,matchmax,maxecc))
+
+    d=d+61
+    e=e+61
+    i=i+1
+
+#   else:
+#       break
+
+#    j=j+1
+
+f.close()
+

@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+#import pycbc modules
+from pycbc import waveform, types
+from pycbc.filter import match
+from pycbc.psd import aLIGOZeroDetHighPower, read
+from pycbc.inject import InjectionSet
+import glue.ligolw.utils as ligolw_utils
+
+#import file with XML class
+import inject
+
+#import python modules
+import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--lower-limit", default=None, type=float,
+                    help="Lower limit of the chunk")
+parser.add_argument("--upper-limit", default=None, type=float,
+                    help="upper limit of the chunk")
+parser.add_argument("--output-dir", default=None,
+                    help="Path to output directory.")
+parser.add_argument("--output-file", default=None,
+                    help="Path to output directory.")
+
+args = parser.parse_args()
+
+#read in injection file
+file = inject._XMLInjectionSet("/work/amber.lenon/projects/eccen/eccenfaith/TaylorF2e/ecctf2einject.xml")
+
+#set variables
+blen = 128 # seconds
+srate = 4096 #
+lfc=30
+tlen = int(srate * blen)
+flen = int(tlen / 2 + 1)
+delt = 1.0 / srate
+delf = 1.0 / blen
+
+#read psd text file
+psd=read.from_txt("/work/amber.lenon/projects/eccen/eccenfaith/TaylorF2e/H1L1-O1_C02_HARM_MEAN_PSD-1126051217-11203200.txt", length=flen, delta_f=delf,low_freq_cutoff=lfc,is_asd_file=False)
+
+
+f = open(args.output_file, 'w+')
+
+headers = ['number', 'm1', 'm2','lan' 'injecc', 'ecc', 'match']
+f.write(' '.join(headers)+'\n')
+eccen = np.arange(0.0,0.61,0.01)
+
+k=1
+z=1
+
+for inj in file.table:
+    if z < args.lower_limit:
+        pass
+
+    elif z >= args.lower_limit and z <= args.upper_limit:
+        approx=inj.waveform
+        m1=inj.mass1
+        m2=inj.mass2
+        f_low=inj.f_lower
+        e=inj.alpha1
+        longnodes=inj.alpha2 
+
+        hp, hc = waveform.get_td_waveform_from_fd(approximant=approx,
+                mass1=m1, mass2=m2, f_lower=f_low, delta_t=delt, long_asc_nodes=longnodes, eccentricity=e)
+        hp = hp.time_slice(-blen, 0)
+
+        for j in eccen:
+
+            sp, sc = waveform.get_fd_waveform(approximant="EccentricFD",
+                                 mass1=m1, mass2=m2, f_lower=lfc, delta_f=delf, long_asc_nodes=longnodes, eccentricity=j)
+
+            sp.resize(flen)
+            
+            #calculate the match
+            m, i = match(hp, sp, psd=psd, low_frequency_cutoff=lfc)
+
+            f.write("%i %.4f %.4f %.4f %.5f %.2f %.5f\n" % (k,m1,m2,longnodes,e,j,m))
+            
+            k=k+1
+    else:
+        break
+    
+    z=z+1
+
+f.close()
+
